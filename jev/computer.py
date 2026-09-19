@@ -30,6 +30,7 @@ class Computer:
         self.action_delay = action_delay
         self._scale = 1.0
         self._pyautogui = None
+        self._sct = None
 
     @property
     def pyautogui(self):
@@ -44,10 +45,30 @@ class Computer:
     def screen_size(self) -> tuple[int, int]:
         return tuple(self.pyautogui.size())  # type: ignore[return-value]
 
+    def _grab(self):
+        """Capture the primary monitor.
+
+        mss is the fast path; some X servers reject its shared-memory capture, so
+        fall back to Pillow's grab.
+        """
+        from PIL import Image, ImageGrab
+
+        if self._sct is not False:
+            try:
+                import mss
+
+                if self._sct is None:
+                    self._sct = mss.mss()
+                raw = self._sct.grab(self._sct.monitors[1])
+                return Image.frombytes("RGB", raw.size, raw.bgra, "raw", "BGRX")
+            except Exception:  # noqa: BLE001 - fall back to Pillow
+                self._sct = False
+        return ImageGrab.grab().convert("RGB")
+
     def screenshot(self) -> Screenshot:
         from PIL import Image
 
-        raw = self.pyautogui.screenshot()
+        raw = self._grab()
         self._scale = self.target_width / raw.width if raw.width > self.target_width else 1.0
         if self._scale != 1.0:
             size = (int(raw.width * self._scale), int(raw.height * self._scale))
