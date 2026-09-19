@@ -115,7 +115,8 @@ class Spotlight(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setStyleSheet(STYLE)
-        self.resize(660, 200)
+        self.setMinimumWidth(680)
+        self.resize(680, 200)
 
         card = QFrame(self)
         card.setObjectName("card")
@@ -168,7 +169,7 @@ class Spotlight(QWidget):
             button.setCursor(Qt.PointingHandCursor)
             button.clicked.connect(lambda _=False, f=flow: self.start_flow(f))
             self.chips.addWidget(button)
-        self.adjustSize()
+        self.resize(self.width(), self.sizeHint().height())
 
     # --- running -----------------------------------------------------------
     def start_task(self) -> None:
