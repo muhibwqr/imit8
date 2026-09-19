@@ -82,11 +82,16 @@ def _parse_slots(days: list[str], times: list[str]) -> list[tuple[int, int]]:
 
 def cmd_schedule(args: argparse.Namespace) -> int:
     try:
-        slots = _parse_slots(args.days, args.at)
+        if args.once:
+            slots, run_at = None, datetime.fromisoformat(args.once).timestamp()
+        else:
+            if not (args.days and args.at):
+                raise ValueError("pass --days and --at for a weekly slot, or --once for a one-off")
+            slots, run_at = _parse_slots(args.days, args.at), None
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
-    schedule = ScheduleStore().add(" ".join(args.task), slots=slots)
+    schedule = ScheduleStore().add(" ".join(args.task), slots=slots, run_at=run_at)
     when = schedule.next_run()
     stamp = datetime.fromtimestamp(when).strftime("%a %d %b %H:%M") if when else "never"
     print(f"[{schedule.id}] {schedule.task}\n      {schedule.describe()} · next {stamp}")
@@ -163,10 +168,11 @@ def build_parser() -> argparse.ArgumentParser:
     schedule = sub.add_parser("schedule", help="run a task on a weekly slot")
     schedule.add_argument("task", nargs="+")
     schedule.add_argument(
-        "--days", nargs="+", required=True, metavar="DAY", help=f"one or more of {', '.join(DAYS)}"
+        "--days", nargs="+", metavar="DAY", help=f"one or more of {', '.join(DAYS)}"
     )
+    schedule.add_argument("--at", nargs="+", metavar="HH:MM", help="one or more times of day")
     schedule.add_argument(
-        "--at", nargs="+", required=True, metavar="HH:MM", help="one or more times of day"
+        "--once", metavar="YYYY-MM-DDTHH:MM", help="run once at this local date and time"
     )
     schedule.set_defaults(func=cmd_schedule)
 

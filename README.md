@@ -58,6 +58,7 @@ visible under the flow chips, so you can see what imit8 is about to do on its ow
 
 ```bash
 imit8 schedule "clear my downloads folder" --days mon wed fri --at 09:00 17:30
+imit8 schedule "back up my notes" --once 2026-01-04T18:00   # one-off
 imit8 schedules              # every schedule with its next run
 imit8 unschedule 2
 imit8 calendar               # the drag-to-select grid

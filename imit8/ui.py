@@ -172,6 +172,7 @@ class Spotlight(QWidget):
 
         self.upcoming = QLabel("")
         self.upcoming.setObjectName("upcoming")
+        self.upcoming.setWordWrap(True)
         self.upcoming.hide()
         layout.addWidget(self.upcoming)
 
@@ -219,8 +220,9 @@ class Spotlight(QWidget):
             if when is None:
                 continue
             stamp = datetime.fromtimestamp(when).strftime("%a %H:%M")
-            lines.append(f"next · {schedule.task} · {stamp}")
-        self.upcoming.setText("     ".join(lines))
+            lead = "next" if not lines else "then"
+            lines.append(f"{lead} · {schedule.task} · {stamp}")
+        self.upcoming.setText("\n".join(lines))
         self.upcoming.setVisible(bool(lines))
 
     def open_calendar(self) -> None:
