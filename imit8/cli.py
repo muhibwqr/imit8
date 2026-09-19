@@ -137,6 +137,12 @@ def cmd_config(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(_: argparse.Namespace) -> int:
+    from .mcp import serve
+
+    return serve()
+
+
 def cmd_ui(_: argparse.Namespace) -> int:
     from .ui import main as ui_main
 
@@ -185,6 +191,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     calendar = sub.add_parser("calendar", help="open the drag-to-select week grid")
     calendar.set_defaults(func=cmd_calendar)
+
+    mcp = sub.add_parser("mcp", help="serve the MCP tools on stdio for another agent")
+    mcp.set_defaults(func=cmd_mcp)
 
     ui = sub.add_parser("ui", help="open the spotlight window (default)")
     ui.set_defaults(func=cmd_ui)

@@ -22,20 +22,21 @@ it did, one click replays the whole thing with no model in the loop, so it's ins
 
 ## Install
 
+One command on macOS (or Linux) — clones into `~/.imit8/src`, installs into its own venv,
+puts `imit8` on your PATH, and builds the dock app:
+
 ```bash
-git clone https://github.com/<you>/imit8 && cd imit8
-pip install -e .
+curl -fsSL https://raw.githubusercontent.com/muhibwqr/imit8/main/install.sh | bash
 export OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai/settings/keys
-imit8                                      # opens the spotlight
+imit8                                    # opens the spotlight
 ```
 
-### Put it in the dock
+From a clone instead: `pip install -e .` then `./scripts/install_macos_app.sh`
+(macOS) or `cp scripts/imit8.desktop ~/.local/share/applications/` (Linux).
 
-- **macOS:** `./scripts/install_macos_app.sh` builds `/Applications/Imit8.app`. Open it once,
-  then right-click the dock icon → Options → Keep in Dock. Grant **Screen Recording** and
-  **Accessibility** to Imit8.app in System Settings → Privacy & Security, or it can't see or
-  click anything.
-- **Linux:** `cp scripts/imit8.desktop ~/.local/share/applications/`.
+On macOS, open Imit8.app once, then right-click the dock icon → Options → Keep in Dock, and
+grant it **Screen Recording** and **Accessibility** in System Settings → Privacy & Security —
+without those it can't see or click anything.
 
 Three ways to trigger it: the dock/app icon, the tray icon, or the global hotkey —
 **ctrl+option+space** on macOS, **ctrl+alt+space** elsewhere (same physical keys).
@@ -67,6 +68,32 @@ imit8 calendar               # the drag-to-select grid
 A scheduled task replays its recorded flow when it has one, and falls back to the full agent
 loop when it doesn't.
 
+## Use it from another agent
+
+`imit8 mcp` speaks MCP on stdio, so an agent session can hand work to your desktop without
+leaving its own loop — including creating schedules:
+
+```json
+{
+  "mcpServers": {
+    "imit8": { "command": "imit8", "args": ["mcp"] }
+  }
+}
+```
+
+Tools: `imit8_run`, `imit8_replay`, `imit8_flows`, `imit8_forget`, `imit8_schedule`,
+`imit8_schedules`, `imit8_unschedule`, `imit8_set_schedule_enabled`. The same surface is
+importable directly:
+
+```python
+from imit8 import api
+
+api.run("open spotify and play lofi")  # replays the recorded flow if there is one
+api.schedule("clear my downloads", days=["fri"], times=["18:00"])
+api.schedule("post the standup note", once="2026-01-04T09:00")
+api.flows()
+```
+
 ## How it works
 
 ```
@@ -90,6 +117,8 @@ screenshot ──► OpenRouter (vision + tool calls) ──► click / type / k
 - **`imit8/schedule.py`** / **`imit8/scheduler.py`** — weekly slots and one-off runs in the same
   database, polled by a background thread.
 - **`imit8/calendar_view.py`** — the drag-to-select week grid.
+- **`imit8/api.py`** / **`imit8/mcp.py`** — the agent-facing surface: plain functions, and a
+  dependency-free stdio MCP server over them.
 
 ### Replay vs. agent
 
