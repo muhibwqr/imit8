@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .agent import Agent, Event
+from .agent import Agent, Event, Result
 from .flows import Flow
 
 STYLE = """
@@ -97,7 +97,7 @@ class Runner(QThread):
                 result = self.agent.run(self.task, sink)
         except Exception as exc:  # noqa: BLE001 - surfaced in the UI
             self.event.emit(Event("error", str(exc)))
-            return
+            result = Result("error", str(exc), 0, 0.0, [])
         self.finished_run.emit(result)
 
 
@@ -106,6 +106,7 @@ class Spotlight(QWidget):
         super().__init__()
         self.agent = agent or Agent()
         self.runner: Runner | None = None
+        self.last_error = ""
         self._build()
         self.refresh_flows()
 
@@ -187,6 +188,7 @@ class Spotlight(QWidget):
             return
         self.prompt.clear()
         self.prompt.setEnabled(False)
+        self.last_error = ""
         self.status.setText(label)
         self.status.show()
         self.stop_button.show()
@@ -201,13 +203,20 @@ class Spotlight(QWidget):
         self.status.setText("stopping…")
 
     def on_event(self, event: Event) -> None:
+        if event.kind == "error":
+            self.last_error = event.text
         if event.kind in {"action", "step", "error", "done", "flow"}:
             self.status.setText(event.text)
 
-    def on_finished(self, result) -> None:  # noqa: ANN001 - agent.Result
+    def on_finished(self, result: Result) -> None:
         self.prompt.setEnabled(True)
         self.stop_button.hide()
-        self.status.setText(f"{result.status} · {result.steps} steps · {result.duration:.1f}s")
+        line = f"{result.status} · {result.steps} steps · {result.duration:.1f}s"
+        detail = result.summary or self.last_error
+        if result.status in {"error", "failed"} and detail:
+            line = f"{line} — {detail}"
+        self.status.setText(line)
+        self.status.setToolTip(detail)
         self.refresh_flows()
         self.show_spotlight()
 
