@@ -1,4 +1,4 @@
-"""Configuration for jev, loaded from env vars and ~/.jev/config.json."""
+"""Configuration for imit8, loaded from env vars and ~/.imit8/config.json."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-HOME_DIR = Path(os.environ.get("JEV_HOME", Path.home() / ".jev"))
+HOME_DIR = Path(os.environ.get("IMIT8_HOME", Path.home() / ".imit8"))
 CONFIG_PATH = HOME_DIR / "config.json"
-DB_PATH = HOME_DIR / "jev.db"
+DB_PATH = HOME_DIR / "imit8.db"
 
 DEFAULT_MODEL = "google/gemini-2.5-flash"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -34,8 +34,8 @@ class Config:
             data = json.loads(CONFIG_PATH.read_text())
         env_map = {
             "api_key": os.environ.get("OPENROUTER_API_KEY"),
-            "model": os.environ.get("JEV_MODEL"),
-            "base_url": os.environ.get("JEV_BASE_URL"),
+            "model": os.environ.get("IMIT8_MODEL"),
+            "base_url": os.environ.get("IMIT8_BASE_URL"),
         }
         data.update({k: v for k, v in env_map.items() if v})
         known = {f for f in cls.__dataclass_fields__}

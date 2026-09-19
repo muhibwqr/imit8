@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "jev"
+name = "imit8"
 version = "0.1.0"
 description = "A local computer-use agent that remembers the flows you run"
 readme = "README.md"
@@ -22,10 +22,10 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [project.scripts]
-jev = "jev.cli:main"
+imit8 = "imit8.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["jev*"]
+include = ["imit8*"]
 
 [tool.ruff]
 line-length = 100

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Jev
+Name=Imit8
 Comment=wyd? — local computer-use agent
-Exec=jev ui
+Exec=imit8 ui
 Terminal=false
 Categories=Utility;
 StartupNotify=false

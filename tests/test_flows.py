@@ -1,8 +1,8 @@
-from jev.flows import FlowStore, fingerprint, normalize
+from imit8.flows import FlowStore, fingerprint, normalize
 
 
 def store(tmp_path):
-    return FlowStore(tmp_path / "jev.db")
+    return FlowStore(tmp_path / "imit8.db")
 
 
 def test_normalize_drops_noise_words_and_punctuation():

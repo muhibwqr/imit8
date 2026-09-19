@@ -56,7 +56,7 @@ QPushButton#stop {
 
 
 # ctrl+option(alt)+space everywhere — option is alt on macOS keyboards.
-HOTKEY = "<ctrl>+<alt>+space"
+HOTKEY = "<ctrl>+<alt>+<space>"
 HOTKEY_LABEL = "ctrl+option+space" if platform.system() == "Darwin" else "ctrl+alt+space"
 
 
@@ -65,8 +65,8 @@ def app_icon() -> QIcon:
     pixmap.fill(QColor("#14151a"))
     painter = QPainter(pixmap)
     painter.setPen(QColor("#7a8cff"))
-    painter.setFont(QFont("Sans", 30, QFont.Bold))
-    painter.drawText(pixmap.rect(), Qt.AlignCenter, "j")
+    painter.setFont(QFont("Sans", 26, QFont.Bold))
+    painter.drawText(pixmap.rect(), Qt.AlignCenter, "i8")
     painter.end()
     return QIcon(pixmap)
 
@@ -138,7 +138,7 @@ class Spotlight(QWidget):
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:
-        self.setWindowTitle("jev")
+        self.setWindowTitle("imit8")
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setStyleSheet(STYLE)
@@ -228,6 +228,7 @@ class Spotlight(QWidget):
             self.calendar = CalendarWindow(store=self.schedules, flows=self.agent.store)
             self.calendar.saved.connect(self.refresh_upcoming)
         self.calendar.refresh()
+        self.hide()  # the spotlight is always-on-top and would sit over the grid
         self.calendar.show()
         self.calendar.raise_()
         self.calendar.activateWindow()
@@ -307,14 +308,14 @@ class Spotlight(QWidget):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("jev")
+    app.setApplicationName("imit8")
     app.setWindowIcon(app_icon())
     app.setQuitOnLastWindowClosed(False)
 
     window = Spotlight()
 
     tray = QSystemTrayIcon(app_icon(), app)
-    tray.setToolTip("jev — wyd?")
+    tray.setToolTip("imit8 — wyd?")
     menu = QMenu()
     open_action = QAction(f"wyd?  ({HOTKEY_LABEL})", menu)
     open_action.triggered.connect(window.show_spotlight)

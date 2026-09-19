@@ -200,7 +200,7 @@ class CalendarWindow(QWidget):
         self.store = store or ScheduleStore()
         self.flows = flows or FlowStore()
         self.setObjectName("calendar")
-        self.setWindowTitle("jev — schedule")
+        self.setWindowTitle("imit8 — schedule")
         self.setStyleSheet(STYLE)
         self.resize(820, 700)
         self._build()
@@ -213,7 +213,7 @@ class CalendarWindow(QWidget):
 
         row = QHBoxLayout()
         self.task = QLineEdit()
-        self.task.setPlaceholderText("what should jev do?")
+        self.task.setPlaceholderText("what should imit8 do?")
         row.addWidget(self.task, 3)
         self.known = QComboBox()
         self.known.addItem("pick a flow…", "")

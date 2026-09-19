@@ -1,4 +1,4 @@
-"""jev command line: `jev` opens the spotlight, `jev run "task"` runs headless."""
+"""imit8 command line: `imit8` opens the spotlight, `imit8 run "task"` runs headless."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def cmd_schedule(args: argparse.Namespace) -> int:
 def cmd_schedules(_: argparse.Namespace) -> int:
     schedules = ScheduleStore().all()
     if not schedules:
-        print("nothing scheduled — `jev calendar` opens the grid picker")
+        print("nothing scheduled — `imit8 calendar` opens the grid picker")
         return 0
     for schedule in schedules:
         when = schedule.next_run()
@@ -139,7 +139,7 @@ def cmd_ui(_: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="jev", description="a local computer-use agent")
+    parser = argparse.ArgumentParser(prog="imit8", description="a local computer-use agent")
     sub = parser.add_subparsers(dest="command")
 
     run = sub.add_parser("run", help="run a task")

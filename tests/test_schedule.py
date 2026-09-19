@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from jev.schedule import DAYS, ScheduleStore
-from jev.scheduler import Scheduler
+from imit8.schedule import DAYS, ScheduleStore
+from imit8.scheduler import Scheduler
 
 
 def stamp(day: str, hour: int, minute: int = 0, week: str = "2024-01-01") -> float:
@@ -13,7 +13,7 @@ def stamp(day: str, hour: int, minute: int = 0, week: str = "2024-01-01") -> flo
 
 
 def store(tmp_path) -> ScheduleStore:
-    return ScheduleStore(tmp_path / "jev.db")
+    return ScheduleStore(tmp_path / "imit8.db")
 
 
 def test_weekly_next_run_picks_the_soonest_slot(tmp_path):

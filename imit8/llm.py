@@ -126,12 +126,12 @@ class OpenRouterClient:
 
     def complete(self, messages: list[dict[str, Any]], timeout: float = 120.0) -> dict[str, Any]:
         if not self.config.api_key:
-            raise LLMError("No OpenRouter API key. Set OPENROUTER_API_KEY or run `jev config`.")
+            raise LLMError("No OpenRouter API key. Set OPENROUTER_API_KEY or run `imit8 config`.")
         headers = {
             "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/jev-agent/jev",
-            "X-Title": "jev",
+            "HTTP-Referer": "https://github.com/imit8-agent/imit8",
+            "X-Title": "imit8",
             **self.config.extra_headers,
         }
         body = {

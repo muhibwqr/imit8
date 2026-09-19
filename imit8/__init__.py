@@ -1,4 +1,4 @@
-"""jev — a local, open-source computer-use agent with flow memory."""
+"""imit8 — a local, open-source computer-use agent with flow memory."""
 
 from .agent import Agent, Event, Result
 from .computer import Computer

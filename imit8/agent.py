@@ -13,7 +13,7 @@ from .config import Config
 from .flows import Flow, FlowStore
 from .llm import LLMError, OpenRouterClient
 
-SYSTEM_PROMPT = """You are jev, a computer-use agent driving a real desktop.
+SYSTEM_PROMPT = """You are imit8, a computer-use agent driving a real desktop.
 
 You get a screenshot before every decision. Call exactly one tool per turn, using
 coordinates in the screenshot's pixel space (top-left is 0,0).

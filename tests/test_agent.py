@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-from jev.agent import Agent, _prune_images
-from jev.computer import Screenshot
-from jev.config import Config
-from jev.flows import FlowStore
+from imit8.agent import Agent, _prune_images
+from imit8.computer import Screenshot
+from imit8.config import Config
+from imit8.flows import FlowStore
 
 
 class FakeComputer:
@@ -55,7 +55,7 @@ def build(tmp_path, script, verify_done=False):
         config=Config(api_key="test", max_steps=10, verify_done=verify_done),
         computer=computer,
         client=FakeClient(script),
-        store=FlowStore(tmp_path / "jev.db"),
+        store=FlowStore(tmp_path / "imit8.db"),
     )
     return agent, computer
 
