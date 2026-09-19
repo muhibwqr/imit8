@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Jev
+Comment=wyd? — local computer-use agent
+Exec=jev ui
+Terminal=false
+Categories=Utility;
+StartupNotify=false
