@@ -9,6 +9,7 @@ from datetime import datetime
 from .agent import Agent, Event
 from .config import Config
 from .flows import FlowStore
+from .schedule import DAYS, ScheduleStore
 
 
 def _print_event(event: Event) -> None:
@@ -64,6 +65,65 @@ def cmd_forget(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_slots(days: list[str], times: list[str]) -> list[tuple[int, int]]:
+    weekdays = []
+    for day in days:
+        key = day.lower()[:3]
+        if key not in DAYS:
+            raise ValueError(f"unknown day {day!r} (use {', '.join(DAYS)})")
+        weekdays.append(DAYS.index(key))
+    slots = []
+    for stamp in times:
+        hour, _, minute = stamp.partition(":")
+        minutes = int(hour) * 60 + int(minute or 0)
+        slots.extend((weekday, minutes) for weekday in weekdays)
+    return slots
+
+
+def cmd_schedule(args: argparse.Namespace) -> int:
+    try:
+        slots = _parse_slots(args.days, args.at)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    schedule = ScheduleStore().add(" ".join(args.task), slots=slots)
+    when = schedule.next_run()
+    stamp = datetime.fromtimestamp(when).strftime("%a %d %b %H:%M") if when else "never"
+    print(f"[{schedule.id}] {schedule.task}\n      {schedule.describe()} · next {stamp}")
+    return 0
+
+
+def cmd_schedules(_: argparse.Namespace) -> int:
+    schedules = ScheduleStore().all()
+    if not schedules:
+        print("nothing scheduled — `jev calendar` opens the grid picker")
+        return 0
+    for schedule in schedules:
+        when = schedule.next_run()
+        stamp = datetime.fromtimestamp(when).strftime("%a %d %b %H:%M") if when else "never"
+        mark = " " if schedule.enabled else "·"
+        print(f"{mark} [{schedule.id:>3}] {schedule.task}")
+        print(f"      {schedule.describe()} · next {stamp} · last {schedule.last_status or '—'}")
+    return 0
+
+
+def cmd_unschedule(args: argparse.Namespace) -> int:
+    ScheduleStore().remove(args.schedule_id)
+    print(f"removed schedule {args.schedule_id}")
+    return 0
+
+
+def cmd_calendar(_: argparse.Namespace) -> int:
+    from PySide6.QtWidgets import QApplication
+
+    from .calendar_view import CalendarWindow
+
+    app = QApplication(sys.argv)
+    window = CalendarWindow()
+    window.show()
+    return app.exec()
+
+
 def cmd_config(_: argparse.Namespace) -> int:
     config = Config.load()
     config.save()
@@ -99,6 +159,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     config = sub.add_parser("config", help="show/write config")
     config.set_defaults(func=cmd_config)
+
+    schedule = sub.add_parser("schedule", help="run a task on a weekly slot")
+    schedule.add_argument("task", nargs="+")
+    schedule.add_argument(
+        "--days", nargs="+", required=True, metavar="DAY", help=f"one or more of {', '.join(DAYS)}"
+    )
+    schedule.add_argument(
+        "--at", nargs="+", required=True, metavar="HH:MM", help="one or more times of day"
+    )
+    schedule.set_defaults(func=cmd_schedule)
+
+    schedules = sub.add_parser("schedules", help="list scheduled tasks")
+    schedules.set_defaults(func=cmd_schedules)
+
+    unschedule = sub.add_parser("unschedule", help="delete a schedule by id")
+    unschedule.add_argument("schedule_id", type=int)
+    unschedule.set_defaults(func=cmd_unschedule)
+
+    calendar = sub.add_parser("calendar", help="open the drag-to-select week grid")
+    calendar.set_defaults(func=cmd_calendar)
 
     ui = sub.add_parser("ui", help="open the spotlight window (default)")
     ui.set_defaults(func=cmd_ui)

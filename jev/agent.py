@@ -28,6 +28,14 @@ Rules:
   stuck or the task would require something you are not allowed to do.
 """
 
+VERIFY_PROMPT = (
+    "Before 'done' is accepted: this is a fresh screenshot taken right now. Does it "
+    "actually show the task finished? If it does, call done(success=true) again and "
+    "quote the on-screen evidence in the summary. If it does not — the window closed, "
+    "the page never loaded, nothing changed — keep working with another action, or call "
+    "done(success=false)."
+)
+
 MAX_IMAGES = 3
 
 
@@ -147,22 +155,14 @@ class Agent:
         ]
         trace: list[dict[str, Any]] = []
         steps = 0
+        verified = False
+        fresh_screenshot = False
         while steps < self.config.max_steps:
             if self._stop:
                 return Result("stopped", "Stopped by user", steps, 0.0, trace)
-            shot = self.computer.screenshot()
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Screenshot ({shot.width}x{shot.height}). Next action?",
-                        },
-                        {"type": "image_url", "image_url": {"url": shot.data_url()}},
-                    ],
-                }
-            )
+            if not fresh_screenshot:
+                self._append_screenshot(messages, "Next action?")
+            fresh_screenshot = False
             _prune_images(messages)
             steps += 1
             on_event(Event("step", f"Step {steps}", {"step": steps}))
@@ -176,9 +176,7 @@ class Agent:
             if not calls:
                 text = (message.get("content") or "").strip()
                 messages.append({"role": "assistant", "content": text})
-                messages.append(
-                    {"role": "user", "content": "Respond with a tool call, not prose."}
-                )
+                messages.append({"role": "user", "content": "Respond with a tool call, not prose."})
                 continue
 
             call = calls[0]
@@ -188,7 +186,21 @@ class Agent:
 
             if name == "done":
                 summary = args.get("summary", "")
-                status = "success" if args.get("success") else "failed"
+                success = bool(args.get("success"))
+                if success and self.config.verify_done and not verified:
+                    verified = True
+                    fresh_screenshot = True
+                    on_event(Event("step", "checking the screen before calling it done"))
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.get("id", ""),
+                            "content": "not accepted yet — verify against a fresh screenshot",
+                        }
+                    )
+                    self._append_screenshot(messages, VERIFY_PROMPT)
+                    continue
+                status = "success" if success else "failed"
                 on_event(Event("done", summary or status, {"status": status}))
                 return Result(status, summary, steps, 0.0, trace)
 
@@ -205,6 +217,18 @@ class Agent:
             )
 
         return Result("failed", f"Hit the {self.config.max_steps} step limit", steps, 0.0, trace)
+
+    def _append_screenshot(self, messages: list[dict[str, Any]], prompt: str) -> None:
+        shot = self.computer.screenshot()
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"Screenshot ({shot.width}x{shot.height}). {prompt}"},
+                    {"type": "image_url", "image_url": {"url": shot.data_url()}},
+                ],
+            }
+        )
 
     def _apply(self, name: str, args: dict[str, Any]) -> None:
         c = self.computer

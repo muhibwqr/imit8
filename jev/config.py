@@ -24,6 +24,7 @@ class Config:
     screenshot_width: int = 1280
     action_delay: float = 0.15
     replay_threshold: int = 2
+    verify_done: bool = True
     extra_headers: dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -48,5 +49,6 @@ class Config:
             "max_steps": self.max_steps,
             "screenshot_width": self.screenshot_width,
             "replay_threshold": self.replay_threshold,
+            "verify_done": self.verify_done,
         }
         CONFIG_PATH.write_text(json.dumps(payload, indent=2))

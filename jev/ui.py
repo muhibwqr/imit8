@@ -9,6 +9,7 @@ from __future__ import annotations
 import platform
 import sys
 from collections.abc import Callable
+from datetime import datetime
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
@@ -26,7 +27,10 @@ from PySide6.QtWidgets import (
 )
 
 from .agent import Agent, Event, Result
+from .calendar_view import CalendarWindow
 from .flows import Flow
+from .schedule import Schedule, ScheduleStore
+from .scheduler import Scheduler
 
 STYLE = """
 #card { background: #14151a; border: 1px solid #2c2f3a; border-radius: 18px; }
@@ -38,6 +42,12 @@ QPushButton#chip {
     border-radius: 14px; padding: 7px 12px; font-size: 13px; text-align: left;
 }
 QPushButton#chip:hover { background: #262935; border-color: #4a5cff; }
+#upcoming { color: #8b93ff; font-size: 12px; }
+QPushButton#ghost {
+    color: #aeb4c8; background: transparent; border: 1px solid #2c2f3a;
+    border-radius: 12px; padding: 6px 12px; font-size: 12px;
+}
+QPushButton#ghost:hover { border-color: #4a5cff; color: #e7e9f5; }
 QPushButton#stop {
     color: #ffd7d7; background: #3a1d22; border: 1px solid #6b2b33;
     border-radius: 12px; padding: 6px 12px; font-size: 12px;
@@ -45,7 +55,9 @@ QPushButton#stop {
 """
 
 
-HOTKEY = "<cmd>+<shift>+space" if platform.system() == "Darwin" else "<ctrl>+<alt>+space"
+# ctrl+option(alt)+space everywhere — option is alt on macOS keyboards.
+HOTKEY = "<ctrl>+<alt>+space"
+HOTKEY_LABEL = "ctrl+option+space" if platform.system() == "Darwin" else "ctrl+alt+space"
 
 
 def app_icon() -> QIcon:
@@ -78,6 +90,12 @@ class Hotkey(QObject):
         return True
 
 
+class SchedulerBridge(QObject):
+    """Hops a due schedule from the poller thread onto the Qt event loop."""
+
+    due = Signal(object)
+
+
 class Runner(QThread):
     event = Signal(object)
     finished_run = Signal(object)
@@ -107,8 +125,16 @@ class Spotlight(QWidget):
         self.agent = agent or Agent()
         self.runner: Runner | None = None
         self.last_error = ""
+        self.schedules = ScheduleStore()
+        self.calendar: CalendarWindow | None = None
+        self.active_schedule: Schedule | None = None
         self._build()
         self.refresh_flows()
+
+        self.bridge = SchedulerBridge()
+        self.bridge.due.connect(self.run_scheduled)
+        self.scheduler = Scheduler(self.bridge.due.emit, store=self.schedules)
+        self.scheduler.start()
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:
@@ -144,11 +170,24 @@ class Spotlight(QWidget):
         self.chips.setSpacing(6)
         layout.addLayout(self.chips)
 
+        self.upcoming = QLabel("")
+        self.upcoming.setObjectName("upcoming")
+        self.upcoming.hide()
+        layout.addWidget(self.upcoming)
+
         footer = QHBoxLayout()
-        hint = QLabel("enter to run  ·  esc to hide  ·  click a flow to replay it")
+        hint = QLabel(
+            f"enter to run  ·  esc to hide  ·  {HOTKEY_LABEL} anywhere  ·  "
+            "click a flow to replay it"
+        )
         hint.setObjectName("hint")
         footer.addWidget(hint)
         footer.addStretch(1)
+        self.calendar_button = QPushButton("schedule…")
+        self.calendar_button.setObjectName("ghost")
+        self.calendar_button.setCursor(Qt.PointingHandCursor)
+        self.calendar_button.clicked.connect(self.open_calendar)
+        footer.addWidget(self.calendar_button)
         self.stop_button = QPushButton("stop")
         self.stop_button.setObjectName("stop")
         self.stop_button.clicked.connect(self.stop_run)
@@ -164,13 +203,34 @@ class Spotlight(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         for flow in self.agent.store.suggestions():
-            bolt = "⚡ " if flow.replayable else ""
+            bolt = "↻ " if flow.replayable else ""
             button = QPushButton(f"{bolt}{flow.task}     · {flow.badge()}, run it again?")
             button.setObjectName("chip")
             button.setCursor(Qt.PointingHandCursor)
             button.clicked.connect(lambda _=False, f=flow: self.start_flow(f))
             self.chips.addWidget(button)
+        self.refresh_upcoming()
         self.resize(self.width(), self.sizeHint().height())
+
+    def refresh_upcoming(self) -> None:
+        lines = []
+        for schedule in self.schedules.upcoming(2):
+            when = schedule.next_run()
+            if when is None:
+                continue
+            stamp = datetime.fromtimestamp(when).strftime("%a %H:%M")
+            lines.append(f"next · {schedule.task} · {stamp}")
+        self.upcoming.setText("     ".join(lines))
+        self.upcoming.setVisible(bool(lines))
+
+    def open_calendar(self) -> None:
+        if self.calendar is None:
+            self.calendar = CalendarWindow(store=self.schedules, flows=self.agent.store)
+            self.calendar.saved.connect(self.refresh_upcoming)
+        self.calendar.refresh()
+        self.calendar.show()
+        self.calendar.raise_()
+        self.calendar.activateWindow()
 
     # --- running -----------------------------------------------------------
     def start_task(self) -> None:
@@ -182,6 +242,19 @@ class Spotlight(QWidget):
         runner = Runner(self.agent, task=flow.task, flow=flow if flow.replayable else None)
         verb = "replaying" if flow.replayable else "running"
         self._start(runner, f"{verb}: {flow.task}")
+
+    def run_scheduled(self, schedule: Schedule) -> None:
+        """Fire a scheduled task: replay its trace when it has one."""
+        if self.runner and self.runner.isRunning():
+            self.schedules.mark_run(schedule.id, "skipped (busy)")
+            return
+        flow = self.agent.store.find(schedule.task)
+        replay = flow if (flow and flow.replayable) else None
+        self.active_schedule = schedule
+        self._start(
+            Runner(self.agent, task=schedule.task, flow=replay),
+            f"scheduled: {schedule.task}",
+        )
 
     def _start(self, runner: Runner, label: str) -> None:
         if self.runner and self.runner.isRunning():
@@ -217,6 +290,9 @@ class Spotlight(QWidget):
             line = f"{line} — {detail}"
         self.status.setText(line)
         self.status.setToolTip(detail)
+        if self.active_schedule is not None:
+            self.schedules.mark_run(self.active_schedule.id, result.status)
+            self.active_schedule = None
         self.refresh_flows()
         self.show_spotlight()
 
@@ -240,18 +316,19 @@ def main() -> int:
     tray = QSystemTrayIcon(app_icon(), app)
     tray.setToolTip("jev — wyd?")
     menu = QMenu()
-    open_action = QAction("wyd?", menu)
+    open_action = QAction(f"wyd?  ({HOTKEY_LABEL})", menu)
     open_action.triggered.connect(window.show_spotlight)
+    schedule_action = QAction("schedule…", menu)
+    schedule_action.triggered.connect(window.open_calendar)
     quit_action = QAction("quit", menu)
     quit_action.triggered.connect(app.quit)
     menu.addAction(open_action)
+    menu.addAction(schedule_action)
     menu.addSeparator()
     menu.addAction(quit_action)
     tray.setContextMenu(menu)
     tray.activated.connect(
-        lambda reason: window.show_spotlight()
-        if reason == QSystemTrayIcon.Trigger
-        else None
+        lambda reason: window.show_spotlight() if reason == QSystemTrayIcon.Trigger else None
     )
     tray.show()
 

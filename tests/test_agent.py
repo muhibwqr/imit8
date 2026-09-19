@@ -49,10 +49,10 @@ class FakeClient:
         }
 
 
-def build(tmp_path, script):
+def build(tmp_path, script, verify_done=False):
     computer = FakeComputer()
     agent = Agent(
-        config=Config(api_key="test", max_steps=10),
+        config=Config(api_key="test", max_steps=10, verify_done=verify_done),
         computer=computer,
         client=FakeClient(script),
         store=FlowStore(tmp_path / "jev.db"),
@@ -135,6 +135,37 @@ def test_step_limit_stops_the_loop(tmp_path):
     agent.config.max_steps = 3
     result = agent.run("loop forever")
     assert result.status == "failed" and result.steps == 3
+
+
+def test_success_is_double_checked_against_a_fresh_screenshot(tmp_path):
+    agent, _ = build(
+        tmp_path,
+        [
+            ("done", {"success": True, "summary": "looks done"}),
+            ("done", {"success": True, "summary": "example.com is loaded"}),
+        ],
+        verify_done=True,
+    )
+    result = agent.run("go to example.com")
+    assert result.status == "success"
+    assert result.summary == "example.com is loaded"
+    assert len(agent.client.calls) == 2
+
+
+def test_verification_can_overturn_a_premature_success(tmp_path):
+    agent, computer = build(
+        tmp_path,
+        [
+            ("done", {"success": True, "summary": "probably fine"}),
+            ("click", {"x": 10, "y": 20}),
+            ("done", {"success": False, "summary": "the tab closed instead"}),
+        ],
+        verify_done=True,
+    )
+    result = agent.run("go to example.com")
+    assert result.status == "failed"
+    assert computer.actions == [("click", 10, 20, "left", 1)]
+    assert not agent.store.find("go to example.com").replayable
 
 
 def test_prune_images_keeps_only_recent_screenshots():
