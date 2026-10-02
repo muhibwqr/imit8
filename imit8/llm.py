@@ -18,6 +18,23 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "click_element",
+            "description": (
+                "Press element N from the 'Interactive elements' list that "
+                "accompanies the screenshot. Always prefer this over click when "
+                "the list is present — it acts directly on the element without "
+                "moving the pointer."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"index": {"type": "integer"}},
+                "required": ["index"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "click",
             "description": "Click at a point in the screenshot's coordinate space.",
             "parameters": {
@@ -41,6 +58,22 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {"text": {"type": "string"}},
                 "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "launch",
+            "description": (
+                "Open or bring focus to a target: an app name ('Calculator'), a "
+                "URL ('https://…'), or a file path. Always prefer this over a "
+                "launcher UI like Spotlight."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
             },
         },
     },
@@ -104,6 +137,27 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "batch",
+            "description": (
+                "Fire a planned sequence of actions back-to-back in a single step. "
+                "Use it for fast-moving screens (games, live UIs) where acting once "
+                "per screenshot is too slow, or to chain obvious steps without "
+                "re-checking. Each action is an object like {\"name\": \"key\", "
+                "\"keys\": \"space\"} or {\"name\": \"wait\", \"seconds\": 0.4} — "
+                "any of click, type_text, key, scroll, drag, wait, launch."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "actions": {"type": "array", "items": {"type": "object"}},
+                },
+                "required": ["actions"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "done",
             "description": "The task is complete (or impossible). Always end with this.",
             "parameters": {
@@ -124,7 +178,12 @@ class OpenRouterClient:
         self.config = config
         self.session = session or requests.Session()
 
-    def complete(self, messages: list[dict[str, Any]], timeout: float = 120.0) -> dict[str, Any]:
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        timeout: float = 120.0,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         if not self.config.api_key:
             raise LLMError("No OpenRouter API key. Set OPENROUTER_API_KEY or run `imit8 config`.")
         headers = {
@@ -137,11 +196,13 @@ class OpenRouterClient:
         body = {
             "model": self.config.model,
             "messages": messages,
-            "tools": TOOLS,
+            "tools": tools if tools is not None else TOOLS,
             "tool_choice": "required",
             "parallel_tool_calls": False,
             "temperature": 0,
         }
+        if self.config.reasoning_effort:
+            body["reasoning"] = {"effort": self.config.reasoning_effort}
         resp = self.session.post(
             f"{self.config.base_url}/chat/completions",
             headers=headers,

@@ -13,15 +13,27 @@ from .schedule import DAYS, ScheduleStore
 
 
 def _print_event(event: Event) -> None:
-    prefix = {"action": "→", "step": "·", "error": "!", "done": "✓", "flow": "★"}.get(
-        event.kind, " "
-    )
+    prefix = {
+        "action": "→",
+        "step": "·",
+        "error": "!",
+        "done": "✓",
+        "flow": "★",
+        "perf": "⚡",
+    }.get(event.kind, " ")
     print(f" {prefix} {event.text}", flush=True)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     agent = Agent()
     result = agent.run(" ".join(args.task), _print_event)
+    print(f"\n{result.status}: {result.summary} ({result.steps} steps, {result.duration:.1f}s)")
+    return 0 if result.status == "success" else 1
+
+
+def cmd_fast(args: argparse.Namespace) -> int:
+    agent = Agent()
+    result = agent.run_fast(" ".join(args.task), _print_event)
     print(f"\n{result.status}: {result.summary} ({result.steps} steps, {result.duration:.1f}s)")
     return 0 if result.status == "success" else 1
 
@@ -129,8 +141,11 @@ def cmd_calendar(_: argparse.Namespace) -> int:
     return app.exec()
 
 
-def cmd_config(_: argparse.Namespace) -> int:
+def cmd_config(args: argparse.Namespace) -> int:
     config = Config.load()
+    if args.api_key:
+        config.api_key = args.api_key
+        config.save_api_key()
     config.save()
     print(f"model: {config.model}\nbase_url: {config.base_url}")
     print("api key: " + ("set" if config.api_key else "missing (set OPENROUTER_API_KEY)"))
@@ -157,6 +172,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("task", nargs="+")
     run.set_defaults(func=cmd_run)
 
+    fast = sub.add_parser("fast", help="run via the element + decisions loop (no screenshots)")
+    fast.add_argument("task", nargs="+")
+    fast.set_defaults(func=cmd_fast)
+
     flows = sub.add_parser("flows", help="list recorded flows and their run counts")
     flows.set_defaults(func=cmd_flows)
 
@@ -169,6 +188,9 @@ def build_parser() -> argparse.ArgumentParser:
     forget.set_defaults(func=cmd_forget)
 
     config = sub.add_parser("config", help="show/write config")
+    config.add_argument(
+        "--api-key", metavar="KEY", help="store an OpenRouter key in ~/.imit8/config.json"
+    )
     config.set_defaults(func=cmd_config)
 
     schedule = sub.add_parser("schedule", help="run a task on a weekly slot")

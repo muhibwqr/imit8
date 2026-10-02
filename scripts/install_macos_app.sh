@@ -13,6 +13,12 @@ fi
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
+# Prefer the native arch — without this, macOS tries script bundles under
+# Rosetta on Apple Silicon and the launch fails with error -10669.
+ARCH="$(uname -m)"
+OTHER_ARCH="x86_64"
+[[ "$ARCH" == "x86_64" ]] && OTHER_ARCH="arm64"
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -26,6 +32,12 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>imit8-launcher</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>LSArchitecturePriority</key>
+  <array><string>${ARCH}</string><string>${OTHER_ARCH}</string></array>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>imit8 screenshots the screen so the agent can see where to act.</string>
+  <key>NSAccessibilityUsageDescription</key>
+  <string>imit8 uses accessibility to click and type on your behalf.</string>
 </dict>
 </plist>
 PLIST
@@ -33,7 +45,11 @@ PLIST
 cat > "$APP_DIR/Contents/MacOS/imit8-launcher" <<LAUNCHER
 #!/usr/bin/env bash
 export PATH="$(dirname "$PYTHON_BIN"):/usr/local/bin:/opt/homebrew/bin:\$PATH"
-exec "$IMIT8_BIN" ui
+LOG="\${IMIT8_HOME:-\$HOME/.imit8}/app.log"
+mkdir -p "\$(dirname "\$LOG")"
+# Bundle launch gets TCC's grants; pass-through args let
+# \`open -n Imit8.app --args run "task"\` run headless under them too.
+exec "$IMIT8_BIN" "\${@:-ui}" >> "\$LOG" 2>&1
 LAUNCHER
 
 chmod +x "$APP_DIR/Contents/MacOS/imit8-launcher"

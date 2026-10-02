@@ -38,14 +38,30 @@ On macOS, open Imit8.app once, then right-click the dock icon → Options → Ke
 grant it **Screen Recording** and **Accessibility** in System Settings → Privacy & Security —
 without those it can't see or click anything.
 
-Three ways to trigger it: the dock/app icon, the tray icon, or the global hotkey —
-**ctrl+option+space** on macOS, **ctrl+alt+space** elsewhere (same physical keys).
+Four ways to trigger it: the dock/app icon, the tray icon, tapping
+**ctrl+option** together, or **ctrl+option+space** on macOS (**ctrl+alt** /
+**ctrl+alt+space** elsewhere — same physical keys). The tap must be quick and on
+its own, so longer shortcuts like ctrl+option+arrow don't summon it.
+
+Tap **ctrl+option twice** and imit8 scopes itself to the frontmost window: the
+rest of the screen blurs away with the window lit through a cutout, and whatever
+you type runs *inside that window only* — screenshots show just it and clicks are
+clamped to its bounds. esc clears the scope. Scoped flows replay their recorded
+region too. While any run is in flight a small ring floats at the bottom of the
+screen — spin while it works, green/red when it lands; click it to peek.
+
+To set your OpenRouter key without touching a shell: hit **⌘,** in the spotlight
+(**ctrl+,** elsewhere) or the tray's "set api key…", paste it, enter. It's saved
+to `~/.imit8/config.json` (owner-only) — an `OPENROUTER_API_KEY` env var still
+takes precedence. `imit8 config --api-key sk-or-...` does the same from the CLI.
 
 ## Use it
 
 ```bash
 imit8                        # spotlight window
 imit8 run "open spotify and play lofi"
+imit8 fast "file an issue on this repo"   # element+decisions loop, ~0.3s/step
+imit8 fast "press the save button"        # or prefix with 'fast ' in the spotlight
 imit8 flows                  # every flow, with run counts and averages
 imit8 replay 3               # replay flow 3 from its recorded trace
 imit8 forget 3
@@ -97,9 +113,11 @@ api.flows()
 ## How it works
 
 ```
-screenshot ──► OpenRouter (vision + tool calls) ──► click / type / key / scroll / drag
-     ▲                                                          │
-     └──────────────────── look again ◄─────────────────────────┘
+screenshot ──► OpenRouter (vision + tool calls) ──► launch / click_element / click / type / …
+     ▲            ▲ Interactive elements list ships                  │
+     │            │ alongside each screenshot — the                  │
+     └────────────┴── model presses them by index                    │
+              look again                                            │
                                 │
                           done(success, summary)
                                 │
@@ -111,6 +129,18 @@ screenshot ──► OpenRouter (vision + tool calls) ──► click / type / k
   model's coordinates are mapped back to physical pixels, so retina and odd resolutions just work.
 - **`imit8/agent.py`** — the loop. One tool call per turn, only the last 3 screenshots stay in
   context (that's most of the speed), and every executed action is appended to a trace.
+  Borrowed from browser-use's playbook:
+  - if the task contains a URL or starts with `open …`, it's opened directly — no model call;
+  - the frontmost app's AX elements are listed next to each screenshot, and the model can
+    `click_element` by index — it presses the element natively without moving your pointer;
+  - `batch` sequences abort mid-flight if the frontmost window changes — the plan's tail
+    assumed a screen that no longer exists (replays always run the full recorded batch);
+  - `fallback_model` in config takes over mid-run if the primary model errors.
+- **`imit8/elements.py`** + **`imit8/decisions.py`** — the fast path. The accessibility API
+  enumerates the frontmost app's buttons, fields and links locally (~20ms, no CoreML or OCR
+  needed), then `~typesafe/jev-latest` answers typed questions about them (~0.3s/step): which
+  element to click, which key to press, whether we're done. A vision check still confirms
+  completion, and a stalled fast loop escalates to the vision loop automatically.
 - **`imit8/flows.py`** — SQLite flow memory. Tasks are normalized ("Open the Spotify app, please!"
   → `open spotify app`) and fuzzy-matched, so re-phrasings count as the same flow.
 - **`imit8/ui.py`** — the spotlight, flow chips, upcoming schedules, and tray/hotkey triggers.
